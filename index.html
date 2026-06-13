@@ -314,6 +314,15 @@ body.c-hover .cursor-dot{ opacity:0; }
 .chain tr.scan td{ background:rgba(232,112,64,0.16); }
 .chain tr.pick.lit{ box-shadow:inset 0 0 0 1px var(--accent); }
 
+/* --- scroll progress + active nav + card hover --- */
+.scroll-prog{ position:fixed; top:0; left:0; height:2px; width:0; background:var(--accent); z-index:8600; }
+.nav__links a.active{ color:var(--ink); }
+.nav__links a.active::after{ transform:scaleX(1); transform-origin:left; }
+.marquee b{ transition:color .35s var(--ease); }
+.persona,.intel__card{ transition:box-shadow .4s var(--ease), border-color .4s var(--ease); }
+.persona:hover,.intel__card:hover{ box-shadow:0 10px 30px rgba(38,37,36,0.08); border-color:rgba(232,112,64,0.4); }
+.intel__card.flag:hover{ box-shadow:0 12px 32px rgba(38,37,36,0.28); border-color:var(--accent); }
+
 /* --- chain scanner --- */
 .chain{ width:100%; border-collapse:collapse; font-family:'Space Mono',monospace; font-size:13px; }
 .chain th{ text-align:right; padding:9px 10px; color:var(--muted); font-weight:400; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; border-bottom:1px solid var(--line-2); }
@@ -433,6 +442,7 @@ body.c-hover .cursor-dot{ opacity:0; }
 
 <!-- grain + cursor -->
 <div class="grain" aria-hidden="true"></div>
+<div class="scroll-prog" aria-hidden="true"></div>
 <div class="cursor" aria-hidden="true"><span class="cursor__label"></span></div>
 <div class="cursor-dot" aria-hidden="true"></div>
 
@@ -498,16 +508,16 @@ body.c-hover .cursor-dot{ opacity:0; }
 <div class="marquee" aria-hidden="true">
   <div class="marquee__track">
     <span>
-      <em>WDC</em> &nbsp;IVR&nbsp;<b>62</b> <span class="sep">/</span>
-      NVDA&nbsp;IVR&nbsp;<b>48</b> <span class="sep">/</span>
+      <em>WDC</em> &nbsp;IVR&nbsp;<b data-tk="WDC">62</b> <span class="sep">/</span>
+      NVDA&nbsp;IVR&nbsp;<b data-tk="NVDA">48</b> <span class="sep">/</span>
       Multi-leg strangles <span class="sep">/</span>
       IV-shock stress test <span class="sep">/</span>
-      AAPL&nbsp;IVR&nbsp;<b>31</b> <span class="sep">/</span>
+      AAPL&nbsp;IVR&nbsp;<b data-tk="AAPL">31</b> <span class="sep">/</span>
       Ex-div assignment flags <span class="sep">/</span>
-      TSLA&nbsp;IVR&nbsp;<b>71</b> <span class="sep">/</span>
+      TSLA&nbsp;IVR&nbsp;<b data-tk="TSLA">71</b> <span class="sep">/</span>
       Built for vol sellers <span class="sep">/</span>
       Optimizer across the live chain <span class="sep">/</span>
-      SPY&nbsp;IVR&nbsp;<b>22</b> <span class="sep">/</span>
+      SPY&nbsp;IVR&nbsp;<b data-tk="SPY">22</b> <span class="sep">/</span>
     </span>
   </div>
 </div>
@@ -516,7 +526,7 @@ body.c-hover .cursor-dot{ opacity:0; }
 <section class="section feat" id="sandbox">
   <div class="wrap">
     <div class="feat__head">
-      <h2 data-reveal>Options<br><em>Sandbox</em></h2>
+      <h2 data-parallax>Options<br><em>Sandbox</em></h2>
       <div class="col-r">
         <span class="sec-index" data-reveal>01 / Sandbox</span>
         <p class="feat__lead" data-reveal>A live multi-leg builder where every assumption is visible. Drag legs, shock the vol, and watch profit and loss redraw across price and time — instantly.</p>
@@ -558,7 +568,7 @@ body.c-hover .cursor-dot{ opacity:0; }
 <section class="section feat feat--rev" id="profiler">
   <div class="wrap">
     <div class="feat__head">
-      <h2 data-reveal>P&amp;L <em>Profiler</em></h2>
+      <h2 data-parallax>P&amp;L <em>Profiler</em></h2>
       <div class="col-r">
         <span class="sec-index" data-reveal>02 / Profiler</span>
         <p class="feat__lead" data-reveal>Tell vegaⁿ the outcome you want. It scans the market against your profit and loss targets, then finds the strikes and expiry that get you there.</p>
@@ -595,7 +605,7 @@ body.c-hover .cursor-dot{ opacity:0; }
 <section class="section feat" id="board">
   <div class="wrap">
     <div class="feat__head">
-      <h2 data-reveal>Research<br>&amp; <em>Board</em></h2>
+      <h2 data-parallax>Research<br>&amp; <em>Board</em></h2>
       <div class="col-r">
         <span class="sec-index" data-reveal>03 / Research &amp; Board</span>
         <p class="feat__lead" data-reveal>An AI deep-research sweep on any ticker, then a board of expert personas that debate your specific trade — and vote. Conviction, pressure-tested.</p>
@@ -631,7 +641,7 @@ body.c-hover .cursor-dot{ opacity:0; }
 <section class="section feat" id="intel">
   <div class="wrap">
     <div class="feat__head">
-      <h2 data-reveal>Live market <em>intel</em></h2>
+      <h2 data-parallax>Live market <em>intel</em></h2>
       <div class="col-r">
         <span class="sec-index" data-reveal>04 / Live intel</span>
         <p class="feat__lead" data-reveal>Real chains, real ranks, real risk. The data layer underneath every sandbox, scan and debate — refreshed live, never stale.</p>
@@ -982,16 +992,60 @@ body.c-hover .cursor-dot{ opacity:0; }
     document.querySelectorAll('[data-reveal]').forEach(el=>el.classList.add('in'));
   }
 
-  /* ---------------- Marquee ---------------- */
-  if(!REDUCED && hasGSAP){
-    const track=document.querySelector('.marquee__track');
-    if(track){
-      const span=track.querySelector('span');
-      track.appendChild(span.cloneNode(true));
-      track.appendChild(span.cloneNode(true));
+  /* ---------------- Marquee (loop) ---------------- */
+  let mqTween=null, mqTrack=null;
+  if(hasGSAP){
+    mqTrack=document.querySelector('.marquee__track');
+    if(mqTrack){
+      const span=mqTrack.querySelector('span');
+      mqTrack.appendChild(span.cloneNode(true));
+      mqTrack.appendChild(span.cloneNode(true));
       const w=span.offsetWidth+48;
-      gsap.to(track,{x:-w,duration:24,ease:'none',repeat:-1});
+      if(!REDUCED) mqTween=gsap.to(mqTrack,{x:-w,duration:24,ease:'none',repeat:-1});
     }
+  }
+
+  /* ---------------- Scroll progress + active nav + heading parallax ---------------- */
+  if(hasGSAP && !REDUCED){
+    const prog=document.querySelector('.scroll-prog');
+    if(prog) gsap.to(prog,{width:'100%',ease:'none',
+      scrollTrigger:{start:0,end:'max',scrub:0.2}});
+
+    ['sandbox','profiler','board','intel'].forEach(id=>{
+      const link=document.querySelector('.nav__links a[href="#'+id+'"]');
+      const sec=document.getElementById(id);
+      if(link && sec) ScrollTrigger.create({trigger:sec,start:'top 55%',end:'bottom 55%',
+        onToggle:self=>link.classList.toggle('active',self.isActive)});
+    });
+
+    gsap.utils.toArray('[data-parallax]').forEach(el=>{
+      const sec=el.closest('section');
+      if(sec) gsap.fromTo(el,{yPercent:15},{yPercent:-15,ease:'none',
+        scrollTrigger:{trigger:sec,start:'top bottom',end:'bottom top',scrub:0.4}});
+    });
+  }
+
+  /* ---------------- Live "tape": marquee figures tick ---------------- */
+  if(!REDUCED){
+    const tks=['WDC','NVDA','AAPL','TSLA','SPY'];
+    setInterval(()=>{
+      const tk=tks[Math.random()*tks.length|0];
+      const els=document.querySelectorAll('.marquee b[data-tk="'+tk+'"]');
+      if(!els.length) return;
+      let v=parseInt(els[0].textContent,10)+(Math.random()<0.5?-1:1);
+      v=Math.max(8,Math.min(94,v));
+      els.forEach(e=>{ e.textContent=v; e.style.color='var(--accent-2)';
+        setTimeout(()=>{ e.style.color=''; },360); });
+    },2200);
+  }
+
+  /* ---------------- Marquee reacts to scroll velocity ---------------- */
+  if(mqTween && mqTrack && lenis && hasGSAP){
+    gsap.ticker.add(()=>{
+      const v=lenis.velocity||0;
+      mqTween.timeScale(1 + Math.min(7, Math.abs(v)*0.22));
+      gsap.set(mqTrack,{skewX: Math.max(-7, Math.min(7, -v*0.28))});
+    });
   }
 
   /* ---------------- Hero entrance + preloader ---------------- */
