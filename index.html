@@ -288,12 +288,31 @@ body.c-hover .cursor-dot{ opacity:0; }
 /* --- P&L heatmap grid --- */
 .pnl{ display:flex; gap:14px; }
 .pnl__yaxis{ display:flex; flex-direction:column; justify-content:space-between; padding:18px 0 22px; font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); }
-.pnl__main{ flex:1; }
+.pnl__main{ flex:1; position:relative; }
 .pnl__grid{ display:grid; gap:2px; }
 .pnl__cell{ aspect-ratio:1.5/1; border-radius:1.5px; transform:scale(0); transform-origin:center; }
 .pnl__xaxis{ display:flex; justify-content:space-between; margin-top:8px; font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); }
 .pnl__legend{ display:flex; align-items:center; gap:8px; margin-top:14px; font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); }
 .pnl__legend .bar{ height:7px; flex:1; border-radius:4px; background:linear-gradient(90deg,#6f6e6b,#cfc8bb,var(--accent-2),var(--accent)); }
+.pnl__cell{ transition:background-color .3s var(--ease); }
+.pnl__tip{ position:absolute; pointer-events:none; transform:translate(-50%,-128%); background:var(--ink); color:var(--paper); font-family:'Space Mono',monospace; font-size:11px; padding:6px 9px; border-radius:4px; white-space:nowrap; opacity:0; transition:opacity .15s; z-index:5; }
+.pnl__tip b{ color:var(--accent-2); }
+.pnl__tip.on{ opacity:1; }
+
+/* --- IV-shock slider --- */
+.ivshock{ margin-top:18px; display:flex; align-items:center; gap:14px; }
+.ivshock label{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.ivshock input[type=range]{ -webkit-appearance:none; appearance:none; flex:1; height:2px; background:var(--line-2); border-radius:2px; outline:none; cursor:pointer; }
+.ivshock input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%; background:var(--accent); border:3px solid var(--paper); box-shadow:0 0 0 1px var(--accent); cursor:grab; transition:transform .18s; }
+.ivshock input[type=range]::-webkit-slider-thumb:active{ transform:scale(1.25); cursor:grabbing; }
+.ivshock input[type=range]::-moz-range-thumb{ width:13px; height:13px; border:3px solid var(--paper); border-radius:50%; background:var(--accent); box-shadow:0 0 0 1px var(--accent); cursor:grab; }
+.ivshock .val{ font-family:'Space Grotesk'; font-weight:600; font-size:14px; color:var(--ink); min-width:96px; text-align:right; }
+.ivshock .val b{ color:var(--accent); font-size:11px; }
+
+/* --- chain scan --- */
+.chain tbody tr{ transition:background-color .25s var(--ease); }
+.chain tr.scan td{ background:rgba(232,112,64,0.16); }
+.chain tr.pick.lit{ box-shadow:inset 0 0 0 1px var(--accent); }
 
 /* --- chain scanner --- */
 .chain{ width:100%; border-collapse:collapse; font-family:'Space Mono',monospace; font-size:13px; }
@@ -508,13 +527,19 @@ body.c-hover .cursor-dot{ opacity:0; }
         <div class="panel" data-tag="P&L · price × time">
           <div class="panel__bar"><span>WDC · short strangle 38P / 52C</span><span class="live">live</span></div>
           <div class="pnl">
-            <div class="pnl__yaxis"><span>+IV</span><span>spot</span><span>−IV</span></div>
+            <div class="pnl__yaxis"><span>now</span><span>T-17</span><span>exp</span></div>
             <div class="pnl__main">
               <div class="pnl__grid" id="pnlGrid"></div>
               <div class="pnl__xaxis"><span>−15%</span><span>spot</span><span>+15%</span></div>
+              <div class="pnl__tip" id="pnlTip"></div>
             </div>
           </div>
           <div class="pnl__legend"><span>Loss</span><span class="bar"></span><span>Max profit</span></div>
+          <div class="ivshock">
+            <label>IV shock</label>
+            <input type="range" id="ivShock" min="-30" max="50" value="0" step="1" aria-label="IV shock percent">
+            <span class="val" id="ivVal">+0% <b>IV</b></span>
+          </div>
         </div>
       </div>
       <div class="feat__text">
@@ -587,7 +612,7 @@ body.c-hover .cursor-dot{ opacity:0; }
             <div class="persona"><div class="persona__top"><span class="persona__name">The Sector Specialist</span><span class="persona__vote vote-short">short vol</span></div><div class="persona__role">sector</div><div class="persona__take">Drive demand stabilizing. Realized vol should keep undershooting implied.</div></div>
             <div class="persona"><div class="persona__top"><span class="persona__name">The Market Maker</span><span class="persona__vote vote-short">short vol</span></div><div class="persona__role">options mm</div><div class="persona__take">62 IV rank, fat term premium. You're the one getting paid here.</div></div>
             <div class="persona"><div class="persona__top"><span class="persona__name">The Tail-Risk Strategist</span><span class="persona__vote vote-hold">hedge</span></div><div class="persona__role">tail risk</div><div class="persona__take">Naked wings are ruin risk. Buy a cheap put further out — keep the body.</div></div>
-            <div class="board__verdict"><span class="v-l">Board verdict</span><span class="v-r"><b>Short vol</b> — defined risk · 5 / 7</span></div>
+            <div class="board__verdict"><span class="v-l">Board verdict</span><span class="v-r"><b>Short vol</b> — defined risk · <span data-count-up="5">0</span> / 7</span></div>
           </div>
         </div>
       </div>
@@ -613,7 +638,7 @@ body.c-hover .cursor-dot{ opacity:0; }
       </div>
     </div>
     <div class="intel">
-      <div class="intel__card span-4" data-reveal><div class="ic-k">IV Rank · WDC</div><div class="ic-n">62</div><div class="ic-d">Implied vol sits in the 62nd percentile of its trailing year — rich premium territory.</div></div>
+      <div class="intel__card span-4" data-reveal><div class="ic-k">IV Rank · WDC</div><div class="ic-n" data-count-up="62">0</div><div class="ic-d">Implied vol sits in the 62nd percentile of its trailing year — rich premium territory.</div></div>
       <div class="intel__card span-8" data-reveal>
         <div class="ic-k">Real options chains</div>
         <div class="ic-row"><span>38 PUT · 35d</span><b>$1.24</b></div>
@@ -621,8 +646,8 @@ body.c-hover .cursor-dot{ opacity:0; }
         <div class="ic-row"><span>Net credit</span><b>$252</b></div>
         <div class="ic-d">Live bids, asks and Greeks straight off the chain — no delayed snapshots.</div>
       </div>
-      <div class="intel__card span-4" data-reveal><div class="ic-k">Earnings</div><div class="ic-n">T-12</div><div class="ic-d">Days to the next report, with the implied move already baked into your stress tests.</div></div>
-      <div class="intel__card span-4" data-reveal><div class="ic-k">Dividend</div><div class="ic-n">$0.50</div><div class="ic-d">Upcoming dividend and ex-date tracked against every open short.</div></div>
+      <div class="intel__card span-4" data-reveal><div class="ic-k">Earnings</div><div class="ic-n" data-count-up="12" data-prefix="T-">T-0</div><div class="ic-d">Days to the next report, with the implied move already baked into your stress tests.</div></div>
+      <div class="intel__card span-4" data-reveal><div class="ic-k">Dividend</div><div class="ic-n" data-count-up="0.50" data-prefix="$" data-decimals="2">$0.00</div><div class="ic-d">Upcoming dividend and ex-date tracked against every open short.</div></div>
       <div class="intel__card span-4 flag" data-reveal><div class="ic-k">Assignment risk</div><div class="ic-n">FLAG</div><div class="ic-d">Ex-dividend in 2 days — short call is ITM. Early-assignment risk flagged before it bites.</div></div>
     </div>
   </div>
@@ -682,47 +707,107 @@ body.c-hover .cursor-dot{ opacity:0; }
   const hasGSAP = typeof gsap !== 'undefined';
   if(hasGSAP && typeof ScrollTrigger !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
-  /* ---------------- P&L heatmap (build first; cheap) ---------------- */
-  function buildPnl(){
-    const grid = document.getElementById('pnlGrid');
-    if(!grid) return;
-    const cols=15, rows=7;
-    grid.style.gridTemplateColumns = `repeat(${cols},1fr)`;
-    const cells=[];
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
-        // short strangle: profit in the middle band, loss at the wings
-        const x=(c/(cols-1))*2-1;            // -1..1 price move
-        const t=(r/(rows-1));                // 0 top(+IV) .. 1 bottom(-IV)
-        const body = 1 - Math.min(1, Math.pow(Math.abs(x)/0.55, 2.4));
-        const v = body - (t-0.5)*0.35;       // IV shock tilts the surface
-        const cell=document.createElement('div');
-        cell.className='pnl__cell';
-        let col;
-        if(v>0.05){ // profit -> orange ramp
-          const k=Math.min(1,v);
-          col=`rgb(${232},${112+ (1-k)*40},${64+(1-k)*40})`;
-          if(k>0.7) col='#e87040';
-        } else { // loss -> charcoal/grey ramp
-          const k=Math.min(1,Math.abs(v));
-          const g=Math.round(150-k*78);
-          col=`rgb(${g+8},${g+6},${g})`;
-        }
-        cell.style.background=col;
-        grid.appendChild(cell);
-        cells.push(cell);
-      }
+  /* ---------------- Interactive P&L heatmap + IV-shock ---------------- */
+  const PNL = { cols:15, rows:7, cells:[] };
+  // short-strangle P&L model: profit body in the middle, loss at the wings,
+  // theta sharpens it toward expiry, short-vega means +IV shock bleeds it.
+  function pnlValue(x, ttx, ivShock){
+    const inBody = 1 - Math.pow(Math.abs(x)/0.55, 2.2);     // >0 inside breakevens
+    let v = inBody * (0.6 + 0.4*ttx);                       // payoff sharpens to expiry
+    v += -ivShock * (0.6 + 0.4*(1 - Math.min(1, Math.abs(x)))); // short vega, strongest ATM
+    return v;
+  }
+  function pnlColor(v){
+    if(v > 0.04){ const k=Math.min(1,v); if(k>0.7) return '#e87040';
+      return `rgb(232,${Math.round(112+(1-k)*40)},${Math.round(64+(1-k)*40)})`; }
+    const k=Math.min(1,Math.abs(v)); const g=Math.round(150-k*78);
+    return `rgb(${g+8},${g+6},${g})`;
+  }
+  function paintPnl(ivShock){
+    const {cols,rows,cells}=PNL;
+    for(let i=0;i<cells.length;i++){
+      const c=i%cols, r=(i/cols)|0;
+      const x=(c/(cols-1))*2-1, ttx=r/(rows-1);
+      const v=pnlValue(x,ttx,ivShock);
+      cells[i]._v=v; cells[i].style.background=pnlColor(v);
     }
-    if(REDUCED){ cells.forEach(c=>c.style.transform='none'); return; }
-    if(hasGSAP){
-      ScrollTrigger.create({
-        trigger:'#pnlGrid', start:'top 80%', once:true,
-        onEnter:()=> gsap.to(cells,{scale:1,duration:0.5,ease:'power2.out',
-          stagger:{each:0.006, from:'center', grid:[rows,cols]}})
-      });
-    } else { cells.forEach(c=>c.style.transform='none'); }
+  }
+  function buildPnl(){
+    const grid=document.getElementById('pnlGrid'); if(!grid) return;
+    const {cols,rows}=PNL;
+    grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+    for(let i=0;i<cols*rows;i++){ const cell=document.createElement('div'); cell.className='pnl__cell'; grid.appendChild(cell); PNL.cells.push(cell); }
+    paintPnl(0);
+
+    // IV-shock slider — re-prices the whole surface live
+    const sl=document.getElementById('ivShock'), val=document.getElementById('ivVal');
+    if(sl){ const onInput=()=>{ const s=+sl.value; paintPnl(s/100);
+        if(val) val.innerHTML=(s>0?'+':'')+s+'% <b>IV</b>'; };
+      sl.addEventListener('input',onInput); onInput(); }
+
+    // hover any cell for its price-move × P&L readout
+    const tip=document.getElementById('pnlTip'), main=grid.parentElement;
+    if(tip && main && !TOUCH){
+      grid.addEventListener('mousemove',e=>{
+        const t=e.target; if(!t.classList || !t.classList.contains('pnl__cell')){ tip.classList.remove('on'); return; }
+        const idx=PNL.cells.indexOf(t); const c=idx%cols;
+        const px=((c/(cols-1))*2-1)*15, v=t._v||0;
+        const dollars=Math.round(v>0 ? v*252 : v*900);
+        tip.innerHTML=`${px>0?'+':''}${px.toFixed(0)}% &middot; <b>${dollars>=0?'+$':'−$'}${Math.abs(dollars)}</b>`;
+        const mr=main.getBoundingClientRect(), cr=t.getBoundingClientRect();
+        tip.style.left=(e.clientX-mr.left)+'px';
+        tip.style.top=(cr.top-mr.top)+'px';
+        tip.classList.add('on');
+      },{passive:true});
+      grid.addEventListener('mouseleave',()=>tip.classList.remove('on'));
+    }
+
+    // entrance stagger
+    if(REDUCED || !hasGSAP){ PNL.cells.forEach(c=>c.style.transform='none'); return; }
+    ScrollTrigger.create({trigger:'#pnlGrid', start:'top 80%', once:true,
+      onEnter:()=> gsap.to(PNL.cells,{scale:1,duration:0.5,ease:'power2.out',
+        stagger:{each:0.006, from:'center', grid:[rows,cols]}})});
   }
   buildPnl();
+
+  /* ---------------- Profiler: auto-scan the chain ---------------- */
+  (function initChainScan(){
+    const tbody=document.querySelector('.chain tbody'); if(!tbody||!hasGSAP||REDUCED) return;
+    const rows=[...tbody.querySelectorAll('tr')];
+    ScrollTrigger.create({trigger:'.chain', start:'top 78%', once:true, onEnter:()=>{
+      rows.forEach((row,i)=> setTimeout(()=>{
+        row.classList.add('scan'); setTimeout(()=>row.classList.remove('scan'),240);
+        if(i===rows.length-1){ const pick=tbody.querySelector('tr.pick');
+          if(pick) setTimeout(()=>pick.classList.add('lit'),200); }
+      }, i*150));
+    }});
+  })();
+
+  /* ---------------- Board: cascade personas + reveal verdict ---------------- */
+  (function initBoard(){
+    if(!hasGSAP || REDUCED) return;
+    const personas=[...document.querySelectorAll('.persona')];
+    if(!personas.length) return;
+    ScrollTrigger.create({trigger:'.board', start:'top 80%', once:true, onEnter:()=>{
+      gsap.from(personas,{y:24,opacity:0,duration:0.6,ease:'power3.out',stagger:0.08});
+      gsap.from('.persona__vote',{scale:0,duration:0.5,ease:'back.out(2)',stagger:0.08,delay:0.28});
+      gsap.from('.board__verdict',{opacity:0,y:16,duration:0.6,delay:0.55});
+    }});
+  })();
+
+  /* ---------------- Scroll-triggered count-ups ---------------- */
+  (function initCountUps(){
+    document.querySelectorAll('[data-count-up]').forEach(el=>{
+      const end=parseFloat(el.getAttribute('data-count-up'));
+      const dec=+(el.getAttribute('data-decimals')||0);
+      const pre=el.getAttribute('data-prefix')||'';
+      const set=v=> el.textContent = pre + (dec ? v.toFixed(dec) : Math.round(v));
+      if(REDUCED || !hasGSAP){ set(end); return; }
+      ScrollTrigger.create({trigger:el, start:'top 90%', once:true, onEnter:()=>{
+        const o={v:0}; gsap.to(o,{v:end,duration:1.3,ease:'power2.out',onUpdate:()=>set(o.v)});
+      }});
+    });
+  })();
 
   /* ---------------- Custom cursor ---------------- */
   if(!TOUCH){
